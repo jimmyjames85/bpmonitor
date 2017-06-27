@@ -31,6 +31,7 @@ var (
 
 func (bp *bpserver) aliceParseIncomingRequest(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Println(qm{"hit" : r.PostForm}.toJSON())
 		err := r.ParseForm()
 		if err != nil {
 			bp.handleInternalServerError(w, fmt.Errorf("failed to parse form data: %s", err), nil)
@@ -182,6 +183,9 @@ func (bp *bpserver) handleUserCreateSessionID(w http.ResponseWriter, r *http.Req
 	if user == nil {
 		return
 	}
+
+	// allow cross domain AJAX requests
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 
 	//todo detect if creds are invalid vs internal error and return http.StatusUnauthorized
 	sid, err := auth.CreateNewSessionID(bp.db, user)
