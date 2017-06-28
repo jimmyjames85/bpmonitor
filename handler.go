@@ -31,14 +31,12 @@ var (
 
 func (bp *bpserver) aliceParseIncomingRequest(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Println(qm{"hit" : r.PostForm}.toJSON())
 		err := r.ParseForm()
 		if err != nil {
 			bp.handleInternalServerError(w, fmt.Errorf("failed to parse form data: %s", err), nil)
 			return
 		}
 		next.ServeHTTP(w, r)
-
 	})
 }
 
@@ -146,6 +144,11 @@ func (bp *bpserver) parseUserCreds(r *http.Request) creds {
 
 	if sid, err := r.Cookie(passwordCookieName); err == nil {
 		ret.sessionId = &sid.Value
+	} else {
+		s := r.Form["session_id"]
+		if len(s) > 0 {
+			ret.sessionId = &s[0]
+		}
 	}
 
 	return ret
@@ -184,9 +187,6 @@ func (bp *bpserver) handleUserCreateSessionID(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// allow cross domain AJAX requests
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-
 	//todo detect if creds are invalid vs internal error and return http.StatusUnauthorized
 	sid, err := auth.CreateNewSessionID(bp.db, user)
 	if err != nil {
@@ -195,9 +195,8 @@ func (bp *bpserver) handleUserCreateSessionID(w http.ResponseWriter, r *http.Req
 	}
 
 	// TODO duplicate code? If you change e.g. session_id to sessionID then you have to update web/handler.go:submitLogin to know it is sessionID
-	io.WriteString(w, qm{"ok":true,"session_id":sid}.String())
+	io.WriteString(w, qm{"ok": true, "session_id": sid}.String())
 }
-
 
 func (bp *bpserver) handleUserCreateApikey(w http.ResponseWriter, r *http.Request) {
 
@@ -216,6 +215,9 @@ func (bp *bpserver) handleUserCreateApikey(w http.ResponseWriter, r *http.Reques
 
 func (bp *bpserver) aliceParseIncomingUser(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		// allow cross domain AJAX requests
+		w.Header().Set("Access-Control-Allow-Origin", "*")
 
 		var errs []error
 
@@ -260,7 +262,7 @@ func (bp *bpserver) aliceParseIncomingUser(next http.Handler) http.Handler {
 			errString += e.Error() + ": "
 		}
 
-		bp.handleInternalServerError(w, fmt.Errorf(errString), nil)
+		bp.handleInternalServerError(w, fmt.Errorf(errString), qm{"ok": false, "error": "unable to authorize"})
 		return
 
 	})
