@@ -63,9 +63,10 @@ func (bp *bpserver) Serve() error {
 		"/user/create/apikey":    authenticatedHandlers.ThenFunc(bp.handleUserCreateApikey),
 		"/measurements/add":      authenticatedHandlers.ThenFunc(bp.handleAddMeasurement),
 		"/measurements/get":      authenticatedHandlers.ThenFunc(bp.handleGetMeasurements),
+		"/measurements/remove":   authenticatedHandlers.ThenFunc(bp.handleRemoveMeasurements),
+		"/measurements/edit":     authenticatedHandlers.ThenFunc(bp.handleEditMeasurements),
 		"/healthcheck":           commonHandlers.ThenFunc(bp.handleHealthcheck),
-		//"/remove":              authenticatedHandlers.ThenFunc(bp.handleRemoveMeasurements),
-		//"/edit":                authenticatedHandlers.ThenFunc(bp.handleEditMeasurements),
+
 	}
 
 	for ep, fn := range endpoints {

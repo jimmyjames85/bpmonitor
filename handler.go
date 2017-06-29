@@ -3,7 +3,6 @@ package bpmonitor
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -83,6 +82,102 @@ func (bp *bpserver) handleGetMeasurements(w http.ResponseWriter, r *http.Request
 	io.WriteString(w, qm{"ok": true, "measurements": measurements}.toJSON())
 
 }
+
+func singleValue(values []string) (string, bool) {
+	if len(values) > 0 {
+		return values[0], true
+	}
+	return "", false
+}
+
+func (bp *bpserver) handleEditMeasurements(w http.ResponseWriter, r *http.Request) {
+	user := bp.mustGetUser(w, r)
+	if user == nil {
+		return
+	}
+
+	var id int
+	var sys, dia, pulse *int
+	var notes *string
+
+	if i, ok := singleValue(r.Form["id"]); !ok {
+		bp.handleCustomerError(w, http.StatusBadRequest, qm{"error": "Must provide id of measurment to edit"})
+	} else {
+		var err error
+		id, err = strconv.Atoi(i)
+		if err != nil {
+			bp.handleCustomerError(w, http.StatusBadRequest, qm{"error": "Unable to parse measurement id"})
+			return
+		}
+	}
+
+	if systolic, ok := singleValue(r.Form["systolic"]); ok {
+		s, err := strconv.Atoi(systolic)
+		if err != nil {
+			bp.handleCustomerError(w, http.StatusBadRequest, qm{"error": "Unable to parse systolic integer"})
+			return
+		}
+		sys = &s
+	}
+
+	if diastolic, ok := singleValue(r.Form["diastolic"]); ok {
+		d, err := strconv.Atoi(diastolic)
+		if err != nil {
+			bp.handleCustomerError(w, http.StatusBadRequest, qm{"error": "Unable to parse diastolic integer"})
+			return
+		}
+		dia = &d
+	}
+
+	if puls, ok := singleValue(r.Form["pulse"]); ok {
+		p, err := strconv.Atoi(puls);
+		if err != nil {
+			bp.handleCustomerError(w, http.StatusBadRequest, qm{"error": "Unable to parse pulse integer"})
+		}
+		pulse = &p
+	}
+
+	if note, ok := singleValue(r.Form["notes"]); ok {
+		notes = &note
+	}
+
+	err := backend.EditMeasurement(bp.db, user.ID, id, sys, dia, pulse, notes)
+	if err == backend.NothingToUpdate {
+		bp.handleCustomerError(w, http.StatusBadRequest, qm{"error": "Nothing to update"})
+		return
+	} else if err != nil {
+		bp.handleInternalServerError(w, err, qm{"error": "internal server error editing measurement"})
+		return
+	}
+	io.WriteString(w, qm{"ok": true}.toJSON())
+
+}
+
+func (bp *bpserver) handleRemoveMeasurements(w http.ResponseWriter, r *http.Request) {
+	user := bp.mustGetUser(w, r)
+	if user == nil {
+		return
+	}
+
+	var ids []int
+	for _, i := range r.Form["id"] {
+		id, err := strconv.Atoi(i)
+		if err != nil {
+			bp.handleCustomerError(w, http.StatusBadRequest, qm{"error": "could not parse integer"})
+			return
+		}
+		ids = append(ids, id)
+	}
+
+	err := backend.RemoveMeasurements(bp.db, user.ID, ids)
+	if err != nil {
+		bp.handleInternalServerError(w, err, qm{"error": "removing measurements"})
+		return
+	}
+
+	io.WriteString(w, qm{"ok": true}.toJSON())
+}
+
 func (bp *bpserver) handleAddMeasurement(w http.ResponseWriter, r *http.Request) {
 	user := bp.mustGetUser(w, r)
 	if user == nil {
@@ -94,27 +189,26 @@ func (bp *bpserver) handleAddMeasurement(w http.ResponseWriter, r *http.Request)
 	pulse := r.Form["pulse"]
 	notes := r.Form["notes"]
 	if len(systolic) == 0 || len(diastolic) == 0 || len(pulse) == 0 {
-		bp.handleCustomerError(w, http.StatusBadRequest, qm{"error": errors.New("must provide systolic, diastolic, and pulse").Error()})
+		bp.handleCustomerError(w, http.StatusBadRequest, qm{"error": "must provide systolic, diastolic, and pulse"})
 		return
 	}
 	var note string
 	if len(notes) > 0 {
 		note = notes[0]
 	}
-
 	sys, err := strconv.Atoi(systolic[0])
 	if err != nil {
-		bp.handleCustomerError(w, http.StatusBadRequest, qm{"error": errors.New("unable to parse systolic")})
+		bp.handleCustomerError(w, http.StatusBadRequest, qm{"error": "unable to parse systolic"})
 		return
 	}
 	dia, err := strconv.Atoi(diastolic[0])
 	if err != nil {
-		bp.handleCustomerError(w, http.StatusBadRequest, qm{"error": errors.New("unable to parse diastolic")})
+		bp.handleCustomerError(w, http.StatusBadRequest, qm{"error": "unable to parse diastolic"})
 		return
 	}
 	pul, err := strconv.Atoi(pulse[0])
 	if err != nil {
-		bp.handleCustomerError(w, http.StatusBadRequest, qm{"error": errors.New("unable to parse pulse")})
+		bp.handleCustomerError(w, http.StatusBadRequest, qm{"error": "unable to parse pulse"})
 		return
 	}
 
