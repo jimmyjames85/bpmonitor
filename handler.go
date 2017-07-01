@@ -9,9 +9,11 @@ import (
 	"net/http"
 	"runtime"
 
-	"github.com/jimmyjames85/bpmonitor/backend/auth"
-	"github.com/jimmyjames85/bpmonitor/backend"
+	"html"
 	"strconv"
+
+	"github.com/jimmyjames85/bpmonitor/backend"
+	"github.com/jimmyjames85/bpmonitor/backend/auth"
 )
 
 const passwordCookieName = "eWVrc2loV2hzYU1ydW9TZWVzc2VubmVUeXRpbGF1UWRuYXJCNy5vTmRsT2VtaXRkbE9zJ2xlaW5hRGtjYUoK"
@@ -79,6 +81,11 @@ func (bp *bpserver) handleGetMeasurements(w http.ResponseWriter, r *http.Request
 		bp.handleInternalServerError(w, err, qm{"error": "retrieving measurements"})
 		return
 	}
+
+	for _, m := range measurements {
+		m.Notes = html.EscapeString(m.Notes)
+	}
+
 	io.WriteString(w, qm{"ok": true, "measurements": measurements}.toJSON())
 
 }
@@ -102,6 +109,7 @@ func (bp *bpserver) handleEditMeasurements(w http.ResponseWriter, r *http.Reques
 
 	if i, ok := singleValue(r.Form["id"]); !ok {
 		bp.handleCustomerError(w, http.StatusBadRequest, qm{"error": "Must provide id of measurment to edit"})
+		return
 	} else {
 		var err error
 		id, err = strconv.Atoi(i)
@@ -114,7 +122,7 @@ func (bp *bpserver) handleEditMeasurements(w http.ResponseWriter, r *http.Reques
 	if systolic, ok := singleValue(r.Form["systolic"]); ok {
 		s, err := strconv.Atoi(systolic)
 		if err != nil {
-			bp.handleCustomerError(w, http.StatusBadRequest, qm{"error": "Unable to parse systolic integer"})
+			bp.handleCustomerError(w, http.StatusBadRequest, qm{"error": "Unable to parse systolic integer", "metric": "systolic", "id": id})
 			return
 		}
 		sys = &s
@@ -123,16 +131,17 @@ func (bp *bpserver) handleEditMeasurements(w http.ResponseWriter, r *http.Reques
 	if diastolic, ok := singleValue(r.Form["diastolic"]); ok {
 		d, err := strconv.Atoi(diastolic)
 		if err != nil {
-			bp.handleCustomerError(w, http.StatusBadRequest, qm{"error": "Unable to parse diastolic integer"})
+			bp.handleCustomerError(w, http.StatusBadRequest, qm{"error": "Unable to parse diastolic integer", "metric": "diastolic", "id": id})
 			return
 		}
 		dia = &d
 	}
 
 	if puls, ok := singleValue(r.Form["pulse"]); ok {
-		p, err := strconv.Atoi(puls);
+		p, err := strconv.Atoi(puls)
 		if err != nil {
-			bp.handleCustomerError(w, http.StatusBadRequest, qm{"error": "Unable to parse pulse integer"})
+			bp.handleCustomerError(w, http.StatusBadRequest, qm{"error": "Unable to parse pulse integer", "metric": "pulse", "id": id})
+			return
 		}
 		pulse = &p
 	}
@@ -149,7 +158,7 @@ func (bp *bpserver) handleEditMeasurements(w http.ResponseWriter, r *http.Reques
 		bp.handleInternalServerError(w, err, qm{"error": "internal server error editing measurement"})
 		return
 	}
-	io.WriteString(w, qm{"ok": true}.toJSON())
+	io.WriteString(w, qm{"ok": true, "id": id}.toJSON())
 
 }
 
