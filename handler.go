@@ -14,6 +14,7 @@ import (
 
 	"github.com/jimmyjames85/bpmonitor/backend"
 	"github.com/jimmyjames85/bpmonitor/backend/auth"
+	"github.com/pkg/errors"
 )
 
 const passwordCookieName = "eWVrc2loV2hzYU1ydW9TZWVzc2VubmVUeXRpbGF1UWRuYXJCNy5vTmRsT2VtaXRkbE9zJ2xlaW5hRGtjYUoK"
@@ -41,14 +42,32 @@ func (bp *bpserver) aliceParseIncomingRequest(next http.Handler) http.Handler {
 	})
 }
 
+func validatePassword(pass string) error {
+	if len(pass) < 5 {
+		return errors.New("password must have at least five characters")
+	}
+	return nil
+}
+
+func validateUsername(username string) error {
+
+	if len(username) < 3 {
+		return errors.New("username must have at least three characters")
+	}
+
+	return nil
+}
+
 // todo this should be served on a different port
 func (bp *bpserver) handleAdminCreateUser(w http.ResponseWriter, r *http.Request) {
+
+	// allow cross domain AJAX requests
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 
 	u, p, a := r.Form["user"], r.Form["pass"], r.Form["adminpass"]
 
 	if len(a) == 0 || a[0] != bp.adminPass {
 		bp.handleCustomerError(w, http.StatusUnauthorized, qm{"error": "Access Denied: Try this https://xkcd.com/538/"})
-		// todo log ip address
 		return
 	}
 
@@ -57,12 +76,24 @@ func (bp *bpserver) handleAdminCreateUser(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	if err := validateUsername(u[0]); err != nil {
+		bp.handleCustomerError(w, http.StatusBadRequest, qm{"error": err.Error()})
+		return
+	}
+
+	if err := validatePassword(p[0]); err != nil {
+		bp.handleCustomerError(w, http.StatusBadRequest, qm{"error": err.Error()})
+		return
+	}
+
 	newUser := creds{username: &u[0], password: &p[0]}
 
 	user, err := auth.CreateUser(bp.db, *newUser.username, *newUser.password)
-	if err != nil {
-		// todo detect if username already exists and tell the user
-		bp.handleInternalServerError(w, err, nil)
+	if err == auth.UserExists {
+		bp.handleCustomerError(w, http.StatusConflict, qm{"error": "username is taken"})
+		return
+	} else if err != nil {
+		bp.handleInternalServerError(w, err, qm{"error": "unknown error please contact the administrator"})
 		return
 	}
 

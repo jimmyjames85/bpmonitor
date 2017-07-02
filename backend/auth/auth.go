@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/pkg/errors"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type User struct {
@@ -48,10 +51,10 @@ func GetUserByApikey(db *sql.DB, apikey string) (*User, error) {
 func GetUserByLogin(db *sql.DB, username, password string) (*User, error) {
 
 	var sessionId, apikey sql.NullString
-	ret := &User{password: password, Username: username}
+	ret := &User{Username: username}
 
-	row := db.QueryRow("select id, session_id, apikey from users where username=? and password=?", username, password)
-	err := row.Scan(&ret.ID, &sessionId, &apikey)
+	row := db.QueryRow("select id, session_id, apikey, password from users where username=?", username)
+	err := row.Scan(&ret.ID, &sessionId, &apikey, &ret.password)
 	if err != nil {
 		return nil, err
 	}
@@ -60,6 +63,10 @@ func GetUserByLogin(db *sql.DB, username, password string) (*User, error) {
 	}
 	if apikey.Valid {
 		ret.apikey = &apikey.String
+	}
+	err = bcrypt.CompareHashAndPassword([]byte(ret.password), []byte(password))
+	if err != nil {
+		return nil, err
 	}
 	return ret, nil
 }
@@ -111,11 +118,21 @@ func CreateNewApikey(db *sql.DB, user *User) (string, error) {
 	return apikey, nil
 }
 
+var UserExists = errors.New("User already exists")
+
 func CreateUser(db *sql.DB, username, password string) (*User, error) {
 
-	_, err := db.Exec("INSERT INTO users (username, password) VALUES (?, ?)", username, password)
+	// Hash password
+	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, err
+	}
+	_, err = db.Exec("INSERT INTO users (username, password) VALUES (?, ?)", username, string(hashed))
+	if err != nil {
+		if strings.Index(err.Error(), "Duplicate entry") == -1 {
+			return nil, err
+		}
+		return nil, UserExists
 	}
 
 	// TODO what if the insert works, but getuser returns err?

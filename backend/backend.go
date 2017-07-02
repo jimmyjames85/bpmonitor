@@ -3,7 +3,6 @@ package backend
 import (
 	"bytes"
 	"database/sql"
-	"log"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -18,6 +17,7 @@ type Measurement struct {
 	Notes     string `json:"notes"`
 	CreatedAt string `json:"created_at"`
 }
+
 var NothingToUpdate = errors.New("nothing to update")
 
 func AddMeasurement(db *sql.DB, userid int, systolic, diastolic, pulse int, notes string) error {
@@ -70,9 +70,6 @@ func EditMeasurement(db *sql.DB, userid int, id int, systolic, diastolic, pulse 
 	args = append(args, userid)
 	args = append(args, id)
 
-
-	log.Println(stmt.String())
-
 	_, err := db.Exec(stmt.String(), args...)
 	return err
 }
@@ -88,7 +85,6 @@ func RemoveMeasurements(db *sql.DB, userid int, ids []int) error {
 		args = append(args, id)
 	}
 	stmt := "DELETE FROM measurements WHERE user_id=? and id IN (?" + strings.Repeat(", ?", len(ids)-1) + ")"
-	log.Println(stmt)
 	_, err := db.Exec(stmt, args...)
 	return err
 
