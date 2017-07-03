@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+  <head>
+
+    <link rel="stylesheet" href="./style.css">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+    <!-- this makes it easier to see on mobile device -->
+    <meta content='width=device-width, initial-scale=1' name='viewport'/>        
+    <title>View</title>
+  </head>
+  <body>
+    <script src="./scripts/session.js"></script>
+    <script src="./scripts/jquery-3.2.1.min.js"></script>    
+    <div id="errorDiv"></div>
+    <div id="controls"></div>
+    <div id="message"></div>
+
+    <script>
+      loadPage();
+
+      function addNew(){
+  	  sid = getCookie(SESSION_ID_COOKIE_KEY);
+	  systolic = getElement("systolic").value;
+	  diastolic = getElement("diastolic").value;
+	  pulse = getElement("pulse").value;
+	  
+	  notes = getElement("notes").value;
+	  addUrl = getBaseURL() + ":50001/measurements/add";
+	  
+	  $.ajax({
+	      url: addUrl,
+	      data: {session_id: sid,
+		     systolic: systolic,
+		     diastolic: diastolic,
+		     pulse: pulse,
+		     notes: notes},
+	      success: function(data, status){loadPage();},
+	      error: function(data, status){addNewOnError(data, status);}
+	  });
+      };
+
+
+      submittedEdits = {}
+
+      function submitEdits(){
+	  sid = getCookie(SESSION_ID_COOKIE_KEY);
+	  
+	  for (var key in modifiedElements){
+	      
+	      var metricID = key.substring(1+key.search("_"));
+	      var metricValue = modifiedElements[key].value;	
+	      var metricName  = key.substring(0, key.search("_"));
+	      
+	      var data = {session_id: sid,
+			  id: metricID};
+	      data[metricName] = metricValue;
+	      
+	      if (submittedEdits[metricID] == null)
+		  submittedEdits[metricID] = {};
+	      
+	      submittedEdits[metricID][key] = modifiedElements[key];
+	      
+	      $.ajax({
+		  url: getBaseURL() + ":50001/measurements/edit",
+		  data: data,
+		  success: function(data, status){updateMeasurement(data);}, 
+		  error: function(data, status){updateMeasurement(data.responseText);},
+	      });
+	  }
+	  
+	  for (var key in modifiedElements){
+	      delete modifiedElements[key];
+	  }
+	  
+      }
+
+      function removeChecked(){
+	  if (!confirm("Are you sure to delete entries?")) { return; }
+	  
+	  sid = getCookie(SESSION_ID_COOKIE_KEY);
+	  var data = "session_id=" + sid;
+	  checkboxes = document.getElementsByName('cbItems');
+	  //     if 
+	  for (var i = 0; i<checkboxes.length; i++){
+	      if(checkboxes[i].checked){
+		  data += "&id=" + checkboxes[i].value;
+		  //mids.push(checkboxes[i].value);
+	      }
+	  }
+	  
+	  removeUrl = getBaseURL() + ":50001/measurements/remove";
+	  
+	  $.ajax({
+	      url: removeUrl, 
+	      data: data,
+	      success: function(data, status){loadPage();},
+	      error: function(data, status){loadPage(data.responseText);},
+	  });
+      }
+
+      function updateMeasurement(data, status) {
+	  
+	  var resp = JSON.parse(data);
+	  m=submittedEdits[resp.id];
+	  if (!resp.ok) {
+	      elementID = resp.metric + '_' + resp.id;
+	      m[elementID].classList.add('error');
+	      delete m[elementID];
+    	      return;
+	  }
+	  
+	  for(var k in m){
+	      m[k].classList.remove('edit');
+	      m[k].classList.remove('error');	
+	  }
+	  
+	  getElement('submitButton').disabled = true;    
+	  
+      }
+
+      function addNewOnError(data, status){
+	  resp = JSON.parse(data.responseText);
+	  if (!resp.ok){
+    	      html = '<pre>' + resp.error + '<pre>';
+    	      getElement('errorDiv').innerHTML = html;
+	  }
+      }
+
+      function loadPage(msg) {
+	  sid = getCookie(SESSION_ID_COOKIE_KEY);
+	  getElement('controls').innerHTML = "<pre>loading...</pre>";
+	  ed = getElement('errorDiv').innerHTML = '';
+	  $.ajax({
+	      url: getBaseURL() + ":50001/measurements/get",
+	      data: {session_id: sid},
+	      success: function (data, status){
+		  
+		  var result = JSON.parse(data);
+		  
+		  html = '';
+		  if (msg != null) {
+		      html = '<pre>' + msg + '</pre>';
+		  }
+		  
+		  html += '<p>';
+		  html += '<table width="95%"><tr>';
+		  html += '<td width="10%"><input type="button" id="removeButton" value="Remove Checked" onclick="removeChecked()"></td>';
+		  html += '<td width="10%"><input type="button" id="submitButton" value="Save Edits" onclick="submitEdits()"></td>';
+		  html += '<td width="60%"></td>'
+		  html += '<td width="10%"><input type="button" id="logoutButton" value="Logout" onclick="logout()"></td>';
+		  html += '</tr></table>';
+		  html += '</p>';
+
+		  html += '<p>';
+		  html += '<br><table  class="bpmonitor">';
+		  html += "<tr><th></th><th>sys</th><th>dia</th><th>pulse</th><th>notes</th><th>Date</th></tr>";
+		  html += '<tr ><td></td><td><input class="measure_add" type="number" id="systolic"></th><td><input class="measure_add" type="number" id="diastolic"></td><td><input class="measure_add" type="number" id="pulse"></td><td><textarea class="measure_add" type="text" id="notes"></textarea></td><td><input type="button" value="ADD" onclick="addNew()"></td></tr>';
+		  
+		  if (result.measurements != null) {
+		      for(var i=0; i < result.measurements.length; i++){
+			  html += "<tr>";
+			  html += '<td width="5%"><input type="checkbox" name="cbItems" value="'+ result.measurements[i].id +'" onClick="enableRemoveButton()"></td>';
+			  
+			  sysID = "systolic_" + result.measurements[i].id;
+			  html += '<td width="10%" class="big"><input class="measure" id="'+ sysID +'" type="text" value="'+ result.measurements[i].systolic +'" onClick="editText('+ "'" + sysID + "'" + ')"></td>';
+			  
+			  diaID = "diastolic_" + result.measurements[i].id;
+			  html += '<td width="10%" class="big"><input class="measure" id="'+ diaID +'" type="text" value="'+ result.measurements[i].diastolic +'" onClick="editText('+ "'" + diaID + "'" + ')"></td>';
+			  
+			  pulID = "pulse_" + result.measurements[i].id;
+			  html += '<td width="10%" class="big"><input class="measure" id="'+ pulID +'" type="text" value="'+ result.measurements[i].pulse +'" onClick="editText('+ "'" + pulID + "'" + ')"></td>';
+			  
+			  notesID = "notes_" + result.measurements[i].id;
+			  notes = result.measurements[i].notes
+			  // onClick="editText('+ "'" + notesID + "'" + ')"></td>'		    
+			  html += '<td><textarea id="'+ notesID +'" class="measure" width="100%" onClick="editText(' + "'" + notesID + "'" + ')">'+notes+'</textarea></td>';//'<textarea class="measure" id="' + notesID + '" value="' + result.measurements[i].notes + '" </td>';//onClick="editText('+ "'" + notesID + "'" + ')"></td>';
+			  
+			  var d = new Date(result.measurements[i].created_at);
+			  html += '<td width="15%" class="small">' + d.toLocaleDateString() + " " + d.toLocaleTimeString() + "</td>";
+			  html += "</tr>\n";
+		      }
+		  }
+		  html += '</table></p>'
+		  getElement('controls').innerHTML = html;
+		  
+		  getElement('submitButton').disabled = true;
+		  getElement('removeButton').disabled = true;
+		  getElement('systolic').focus();
+	      },
+	      
+	      error: function(data, status){
+		  getElement('message').innerHTML = '<pre>' + data.responseText + '</pre>';
+		  logout();
+	      }
+	  });
+      };
+
+      function abbreviate(text, len){
+	  if ( text.length -3 > len){
+	      return text.substring(0, len -3) + "...";
+	  }
+	  return text;
+      }
+
+      modifiedElements = {}
+
+      function editText(id){
+	  
+	  tb = getElement(id);
+	  if (tb != null)
+	  {
+	      tb.readOnly = false;
+	      tb.classList.add('edit');
+	      modifiedElements[id]=tb;
+	  }
+	  
+	  var obj = new Object();
+	  obj.data = modifiedElements;
+	  getElement('submitButton').disabled = false;
+      }
+
+      function enableRemoveButton(){
+	  getElement('removeButton').disabled = false;    
+      }
+
+      function logout(){
+	  document.cookie = SESSION_ID_COOKIE_KEY + "=; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
+	  window.location = './';
+	  
+      }
+
+    </script>
+  </body>    
+</html>

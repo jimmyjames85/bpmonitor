@@ -1,0 +1,39 @@
+version: '2'
+services:
+
+  webserver:
+    build:
+      context: ./docker
+      dockerfile: staticWebServer.dockerfile
+    volumes:
+      - ./web:/site
+    ports:
+      - "8080:8080"
+
+
+  setup:
+    build:
+      context: ./docker
+      dockerfile: centos7.dockerfile
+    links:
+      - "mysql:mysql"
+    volumes:
+      - ./createTables.sql:/etc/createTables.sql
+    command: >
+      bash -c "while ! echo | nc -w1 mysql 3306 > /dev/null ; do echo waiting for mysql; sleep 1; done; echo mysql connected &&
+      mysql -uroot -h mysql < /etc/createTables.sql &&
+      while [ true ] ; do sleep 1; done
+      "
+
+  mysql:
+    image: percona:5.5
+    volumes:
+      - ./createTables.sql:/etc/createTables.sql
+    environment:
+      - MYSQL_ALLOW_EMPTY_PASSWORD=1
+    expose:
+      - "3306"
+    ports:
+      - "3306:3306"
+
+

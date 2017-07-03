@@ -1,0 +1,95 @@
+<html>
+  <head>
+    <link rel="stylesheet" href="./style.css">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+    <!-- this makes it easier to see on mobile device -->
+    <meta content='width=device-width, initial-scale=1' name='viewport'/>        
+    <title>Login</title>
+  </head>
+  <script src="./scripts/session.js"></script>
+  <script src="./scripts/jquery-3.2.1.min.js"></script>
+  <body>
+    <div class="topDiv">
+      <div id="controls">
+	<div>
+	  Username:
+	  <input type="text" id="username">
+	</div>
+	<br>
+
+	<div>
+	  Password:
+	  <input type="password" id="password"  onkeyup="enterPassword(event)">
+	</div>
+	<br>
+	<div>
+	  Re-enter Password:
+	  <input type="password" id="password2"  onkeyup="enterPassword(event)">
+	  <input type="button" id="btnCreate" value="Create Account" onclick="doCreateAccount();">
+	</div>
+      </div>
+      <div id="message"></div>
+    </div>
+  </body>
+
+<script>
+loadPage();
+
+function doCreateAccount()
+{
+    var username = getElement('username').value
+    var password = getElement('password').value
+    createURL = getBaseURL() + ":50001/admin/create/user";
+    $.ajax({
+	url: createURL,
+	data: {user: username, pass: password, adminpass:createURL},
+	success: function (data, status){
+
+
+	    // Login
+	    sessionURL = getBaseURL() + ":50001/user/create/sessionid";
+	    $.ajax({
+		url: sessionURL,
+		data: {user: username, pass: password},
+		success: function (data, status){
+		    var result = JSON.parse(data);
+		    document.cookie = SESSION_ID_COOKIE_KEY + "=" + result.session_id;
+		    window.location = "./view.html";},
+
+		error: function(data, status){
+		    document.cookie = SESSION_ID_COOKIE_KEY + "=; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
+		    getElement('message').innerHTML = '<pre>' + data.responseText + '</pre>';
+		    getElement('username').focus();
+		}
+	    });
+	},
+	error: function(data, status){
+	    document.cookie = SESSION_ID_COOKIE_KEY + "=; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
+	    getElement('message').innerHTML = '<pre>' + data.responseText + '</pre>';
+	    getElement('username').focus();
+	}
+    });
+}
+
+// e - event
+function enterPassword(e){
+
+    btn = getElement('btnCreate');
+    p1 = getElement('password');
+    p2 = getElement('password2');
+
+    btn.disabled = true;
+    if (p1.value == p2.value )
+	btn.disabled = false;
+}
+
+function loadPage(){
+
+    //document loaded
+    getElement('username').focus();
+    getElement('btnCreate').disabled = true;
+};
+
+</script>
+</html>
