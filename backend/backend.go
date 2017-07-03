@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"strings"
 
+	"time"
+
 	"github.com/pkg/errors"
 )
 
@@ -15,7 +17,7 @@ type Measurement struct {
 	Diastolic int    `json:"diastolic"`
 	Pulse     int    `json:"pulse"`
 	Notes     string `json:"notes"`
-	CreatedAt string `json:"created_at"`
+	CreatedAt int64  `json:"created_at"`
 }
 
 var NothingToUpdate = errors.New("nothing to update")
@@ -25,7 +27,7 @@ func AddMeasurement(db *sql.DB, userid int, systolic, diastolic, pulse int, note
 	return err
 }
 
-func EditMeasurement(db *sql.DB, userid int, id int, systolic, diastolic, pulse *int, notes *string) error {
+func EditMeasurement(db *sql.DB, userid int, id int, systolic, diastolic, pulse *int, notes *string, createdAt *time.Time) error {
 
 	var args []interface{}
 
@@ -60,6 +62,13 @@ func EditMeasurement(db *sql.DB, userid int, id int, systolic, diastolic, pulse 
 		}
 		stmt.WriteString("notes=? ")
 		args = append(args, *notes)
+	}
+	if createdAt != nil {
+		if len(args) > 0 {
+			stmt.WriteString(", ")
+		}
+		stmt.WriteString("created_at=? ")
+		args = append(args, *createdAt)
 	}
 
 	if len(args) == 0 {
@@ -101,10 +110,12 @@ func GetMeasurements(db *sql.DB, userid int) ([]Measurement, error) {
 	defer rows.Close()
 	for rows.Next() {
 		var m Measurement
-		err = rows.Scan(&m.Id, &m.userid, &m.Systolic, &m.Diastolic, &m.Pulse, &m.Notes, &m.CreatedAt)
+		var createdAt time.Time
+		err = rows.Scan(&m.Id, &m.userid, &m.Systolic, &m.Diastolic, &m.Pulse, &m.Notes, &createdAt)
 		if err != nil {
 			return ret, err
 		}
+		m.CreatedAt = createdAt.UTC().Unix()
 		ret = append(ret, m)
 	}
 

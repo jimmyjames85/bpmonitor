@@ -39,8 +39,9 @@ func NewServer(host string, port int, adminPass string, dsn mysql.Config, sslPem
 		sslKeyFileloc: sslKeyFileloc,
 	}
 
+	dsn.ParseTime = true
 	scrubbedDSN := scrubDSN(dsn)
-	fmt.Printf("DSN: %s\n", scrubbedDSN)
+	log.Println("DSN: %s\n", scrubbedDSN)
 	db, err := sql.Open("mysql", dsn.FormatDSN())
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not open %s", scrubbedDSN)
@@ -66,7 +67,6 @@ func (bp *bpserver) Serve() error {
 		"/measurements/remove":   authenticatedHandlers.ThenFunc(bp.handleRemoveMeasurements),
 		"/measurements/edit":     authenticatedHandlers.ThenFunc(bp.handleEditMeasurements),
 		"/healthcheck":           commonHandlers.ThenFunc(bp.handleHealthcheck),
-
 	}
 
 	for ep, fn := range endpoints {
@@ -81,7 +81,7 @@ func (bp *bpserver) Serve() error {
 			//todo collect ssl error through a channel
 			err := http.ListenAndServeTLS(fmt.Sprintf(":%d", bp.port+1), bp.sslPemFileloc, bp.sslKeyFileloc, nil)
 			if err != nil {
-				log.Println(fmt.Printf(`{"err_ssl": %q}`, err.Error()))
+				log.Printf(`{"err_ssl": %q}`, err.Error())
 			}
 		}()
 	}

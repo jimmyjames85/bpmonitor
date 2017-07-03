@@ -9,3 +9,6 @@
 
 	# if you want to run a webserver hosting files in web/
 	docker-compose up -d webserver
+
+	# run locally with
+	source ./example.env && go run cmd/bpmonitor/main.go
