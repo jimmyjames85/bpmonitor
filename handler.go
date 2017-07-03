@@ -4,12 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html"
 	"io"
 	"log"
 	"net/http"
 	"runtime"
-
-	"html"
 	"strconv"
 
 	"github.com/jimmyjames85/bpmonitor/backend"

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	"time"
 )
 
 type Measurement struct {
@@ -15,7 +16,7 @@ type Measurement struct {
 	Diastolic int    `json:"diastolic"`
 	Pulse     int    `json:"pulse"`
 	Notes     string `json:"notes"`
-	CreatedAt string `json:"created_at"`
+	CreatedAt int64  `json:"created_at"`
 }
 
 var NothingToUpdate = errors.New("nothing to update")
@@ -101,10 +102,12 @@ func GetMeasurements(db *sql.DB, userid int) ([]Measurement, error) {
 	defer rows.Close()
 	for rows.Next() {
 		var m Measurement
-		err = rows.Scan(&m.Id, &m.userid, &m.Systolic, &m.Diastolic, &m.Pulse, &m.Notes, &m.CreatedAt)
+		var createdAt time.Time
+		err = rows.Scan(&m.Id, &m.userid, &m.Systolic, &m.Diastolic, &m.Pulse, &m.Notes, &createdAt)
 		if err != nil {
 			return ret, err
 		}
+		m.CreatedAt = createdAt.UTC().Unix()
 		ret = append(ret, m)
 	}
 
