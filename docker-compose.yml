@@ -1,8 +1,20 @@
 version: '2'
 services:
 
+  webserver:
+    build:
+      context: ./docker
+      dockerfile: staticWebServer.dockerfile
+    volumes:
+      - ./web:/site
+    ports:
+      - "8080:8080"
+
+
   setup:
-    image: jamestappe.com/centos7
+    build:
+      context: ./docker
+      dockerfile: centos7.dockerfile
     links:
       - "mysql:mysql"
     volumes:
