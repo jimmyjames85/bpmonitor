@@ -5,8 +5,9 @@ import (
 	"database/sql"
 	"strings"
 
-	"github.com/pkg/errors"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
 type Measurement struct {
@@ -26,7 +27,7 @@ func AddMeasurement(db *sql.DB, userid int, systolic, diastolic, pulse int, note
 	return err
 }
 
-func EditMeasurement(db *sql.DB, userid int, id int, systolic, diastolic, pulse *int, notes *string) error {
+func EditMeasurement(db *sql.DB, userid int, id int, systolic, diastolic, pulse *int, notes *string, createdAt *time.Time) error {
 
 	var args []interface{}
 
@@ -61,6 +62,13 @@ func EditMeasurement(db *sql.DB, userid int, id int, systolic, diastolic, pulse 
 		}
 		stmt.WriteString("notes=? ")
 		args = append(args, *notes)
+	}
+	if createdAt != nil {
+		if len(args) > 0 {
+			stmt.WriteString(", ")
+		}
+		stmt.WriteString("created_at=? ")
+		args = append(args, *createdAt)
 	}
 
 	if len(args) == 0 {

@@ -11,6 +11,8 @@ import (
 	"runtime"
 	"strconv"
 
+	"time"
+
 	"github.com/jimmyjames85/bpmonitor/backend"
 	"github.com/jimmyjames85/bpmonitor/backend/auth"
 	"github.com/pkg/errors"
@@ -136,6 +138,7 @@ func (bp *bpserver) handleEditMeasurements(w http.ResponseWriter, r *http.Reques
 	var id int
 	var sys, dia, pulse *int
 	var notes *string
+	var created_at *time.Time
 
 	if i, ok := singleValue(r.Form["id"]); !ok {
 		bp.handleCustomerError(w, http.StatusBadRequest, qm{"error": "Must provide id of measurment to edit"})
@@ -180,7 +183,17 @@ func (bp *bpserver) handleEditMeasurements(w http.ResponseWriter, r *http.Reques
 		notes = &note
 	}
 
-	err := backend.EditMeasurement(bp.db, user.ID, id, sys, dia, pulse, notes)
+	if ca, ok := singleValue(r.Form["created_at"]); ok {
+		ts, err := strconv.ParseInt(ca, 10, 64)
+		if err != nil {
+			bp.handleCustomerError(w, http.StatusBadRequest, qm{"error": "Unable to parse created_at date", "metric": "created_at", "id": id})
+			return
+		}
+		ca := time.Unix(ts, 0)
+		created_at = &ca
+	}
+
+	err := backend.EditMeasurement(bp.db, user.ID, id, sys, dia, pulse, notes, created_at)
 	if err == backend.NothingToUpdate {
 		bp.handleCustomerError(w, http.StatusBadRequest, qm{"error": "Nothing to update"})
 		return

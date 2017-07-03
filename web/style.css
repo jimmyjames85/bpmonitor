@@ -1,5 +1,5 @@
 
-div.topDiv 
+div.topDiv
 {
     margin-top: -10px;
     margin-left: auto;
@@ -22,7 +22,7 @@ h1, h2
     margin-top: 75px;
     color: #E47128;
     font-family: "Tmes New Roman", Times, serif;
-    font-family: Arial, Helvetica, sans-serif;    
+    font-family: Arial, Helvetica, sans-serif;
 }
 
 .warning
@@ -156,10 +156,19 @@ input.small
     height: 25px;
 }
 
+input.date
+{
+    width: 100%;
+    color: #000000;
+    padding: 0px;
+    border: 0px;
+    background-color: #EEEEEE;
+}
+
 input.measure_add
 {
     color: #000000;
-    padding: 0px;    
+    padding: 0px;
     border: 0px;
     width: 100%;
     height: 100%;
@@ -170,7 +179,7 @@ input.measure_add
 input.measure
 {
     color: #000000;
-    padding: 0px;    
+    padding: 0px;
     border: 0px;
     width: 50px;
     font-size: 20pt;
@@ -179,7 +188,7 @@ input.measure
 
 input.edit
 {
-    color: #000000;    
+    color: #000000;
     background-color: #FFFFFF;
 }
 
@@ -194,7 +203,7 @@ textarea.measure_add
     color: #000000;
     padding: 0px;
     border: 0px;
-    background-color: #FFFFFF;    
+    background-color: #FFFFFF;
 }
 
 textarea.measure
@@ -203,12 +212,12 @@ textarea.measure
     color: #000000;
     padding: 0px;
     border: 0px;
-    background-color: #EEEEEE;    
+    background-color: #EEEEEE;
 }
 
 textarea.edit
 {
-    color: #000000;    
+    color: #000000;
     background-color: #FFFFFF;
 }
 
@@ -287,7 +296,7 @@ div.commandline select
 {
     margin-left: -25px;
     margin-top: -35px;
-    
+
     padding: 0px;
     color: #E47128;
     font-weight: bold;
@@ -424,5 +433,3 @@ div.anaside
     padding: 8px 8px 8px 8px ;
     background-color: #E5AD24;
 }
-
-

@@ -6,7 +6,7 @@
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
     <!-- this makes it easier to see on mobile device -->
-    <meta content='width=device-width, initial-scale=1' name='viewport'/>        
+    <meta content='width=device-width, initial-scale=1' name='viewport'/>
     <title>View</title>
   </head>
   <body>
@@ -45,9 +45,15 @@
       function submitEdits(){
 	  sid = getCookie(SESSION_ID_COOKIE_KEY);
 	  for (var key in modifiedElements){
-	      var metricID = key.substring(1+key.search("_"));
-	      var metricValue = modifiedElements[key].value;	
-	      var metricName  = key.substring(0, key.search("_"));
+
+	      var split = key.lastIndexOf("_");
+	      var metricName  = key.substring(0, split);
+	      var metricID = key.substring(1+split);
+	      var metricValue = modifiedElements[key].value;
+
+	      if ( metricName == 'created_at' )
+		  metricValue = '' + (new Date(metricValue).getTime() / 1000);
+
 	      var data = {session_id: sid,
 			  id: metricID};
 	      data[metricName] = metricValue;
@@ -96,13 +102,15 @@
       }
 
       function updateMeasurement(data, status) {
-
 	  var resp = JSON.parse(data);
 	  m=submittedEdits[resp.id];
 	  if (!resp.ok) {
 	      elementID = resp.metric + '_' + resp.id;
 	      m[elementID].classList.add('error');
 	      delete m[elementID];
+
+	      html = '<pre>' + resp.metric + '===' + resp.error + '<pre>';
+	      getElement('errorDiv').innerHTML = html;
 	      return;
 	  }
 
@@ -169,15 +177,19 @@
 
 			  notesID = "notes_" + result.measurements[i].id;
 			  notes = result.measurements[i].notes
-
 			  html += '<td><textarea id="'+ notesID +'" class="measure" width="100%" onClick="editText(' + "'" + notesID + "'" + ')">'+notes+'</textarea></td>';
+
+
+			  dateID = "created_at_" + result.measurements[i].id;
 
 			  // javascript date is in ms
 			  var d = new Date(result.measurements[i].created_at * 1000);
-			  html += '<td width="15%" class="small">' + d.toLocaleDateString() + " " + d.toLocaleTimeString() + "</td>";
+			  dateStr = d.toLocaleDateString() + " " + d.toLocaleTimeString();
+			  html += '<td width="15%" class="small"><input class="date" id="'+ dateID +'" type="text" value="'+ dateStr +'" onClick="editText('+ "'" + dateID + "'" + ')"></td>';
 			  html += "</tr>\n";
 		      }
 		  }
+
 		  html += '</table></p>'
 		  getElement('controls').innerHTML = html;
 
@@ -212,8 +224,6 @@
 	      modifiedElements[id]=tb;
 	  }
 
-	  var obj = new Object();
-	  obj.data = modifiedElements;
 	  getElement('submitButton').disabled = false;
       }
 
