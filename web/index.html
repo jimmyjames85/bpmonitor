@@ -63,16 +63,16 @@ function enterPassword(e){
 
 function loadPage(){
 
-/*
+    getElement('username').focus();
+
+    // comment this out while developing
     loc = "" + window.location;
     http = loc.substring(0,5).toLowerCase();
     if (http != 'https'){
 	window.location = 'https' + loc.substring(4);
     }
-*/
+    // comment this out while developing
 
-    //document loaded
-    getElement('username').focus();
 };
 
 </script>
