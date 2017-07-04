@@ -66,7 +66,7 @@ func (bp *bpserver) Serve() error {
 		"/measurements/get":      authenticatedHandlers.ThenFunc(bp.handleGetMeasurements),
 		"/measurements/remove":   authenticatedHandlers.ThenFunc(bp.handleRemoveMeasurements),
 		"/measurements/edit":     authenticatedHandlers.ThenFunc(bp.handleEditMeasurements),
-		"/plot":                  authenticatedHandlers.ThenFunc(bp.handlePlotMeasurements),
+		"/measurements/graph":    authenticatedHandlers.ThenFunc(bp.handleGraphMeasurements),
 		"/healthcheck":           commonHandlers.ThenFunc(bp.handleHealthcheck),
 	}
 
@@ -79,7 +79,8 @@ func (bp *bpserver) Serve() error {
 		log.Println("starting ssl")
 		go func() {
 			// shamefully ignoring error
-			//todo collect ssl error through a channel
+			// todo collect ssl error through a channel
+			// todo or attempt to listen and serve tls first and on failure serve an unsecure connection
 			err := http.ListenAndServeTLS(fmt.Sprintf(":%d", bp.port+1), bp.sslPemFileloc, bp.sslKeyFileloc, nil)
 			if err != nil {
 				log.Printf(`{"err_ssl": %q}`, err.Error())

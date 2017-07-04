@@ -4,7 +4,7 @@
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
     <!-- this makes it easier to see on mobile device -->
-    <meta content='width=device-width, initial-scale=1' name='viewport'/>        
+    <meta content='width=device-width, initial-scale=1' name='viewport'/>
     <title>Login</title>
   </head>
   <script src="./scripts/session.js"></script>
@@ -32,7 +32,7 @@
 <script>
 loadPage();
 
-function doLogin() 
+function doLogin()
 {
     var username = getElement('username').value
     var password = getElement('password').value
@@ -44,11 +44,11 @@ function doLogin()
 	    var result = JSON.parse(data);
 	    document.cookie = SESSION_ID_COOKIE_KEY + "=" + result.session_id;
 	    window.location = "./view.html";},
-	
+
 	error: function(data, status){
 	    document.cookie = SESSION_ID_COOKIE_KEY + "=; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
 	    getElement('message').innerHTML = '<pre>' + data.responseText + '</pre>';
-	    getElement('username').focus();	    
+	    getElement('username').focus();
 	}
     });
 }
@@ -57,22 +57,24 @@ function doLogin()
 function enterPassword(e){
     // 13 - carriage return
     if ( e.keyCode == 13 ) {
-    	doLogin();
+	doLogin();
     }
 }
 
 function loadPage(){
 
     getElement('username').focus();
-
-    // comment this out while developing
     loc = "" + window.location;
+
+    if (loc.substring(0, 16).toLowerCase() == 'http://localhost'){
+	return;
+    }
+
+    // comment this out to avoid https redirect
     http = loc.substring(0,5).toLowerCase();
     if (http != 'https'){
 	window.location = 'https' + loc.substring(4);
     }
-    // comment this out while developing
-
 };
 
 </script>

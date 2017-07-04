@@ -5,22 +5,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
+	"image/color"
 	"io"
 	"log"
+	"math"
+	"math/rand"
 	"net/http"
 	"runtime"
 	"strconv"
-
 	"time"
-
-	"math/rand"
-
-	"image/color"
-	"math"
 
 	"github.com/gonum/plot"
 	"github.com/gonum/plot/plotter"
 	"github.com/gonum/plot/vg"
+	"github.com/gonum/plot/vg/draw"
 	"github.com/jimmyjames85/bpmonitor/backend"
 	"github.com/jimmyjames85/bpmonitor/backend/auth"
 	"github.com/pkg/errors"
@@ -153,9 +151,8 @@ func randomPoints(n int) plotter.XYs {
 //TODO there has GOT to be an equivalent type in github.com/gonum/plot
 type point struct{ X, Y float64 }
 
-func (bp *bpserver) handlePlotMeasurements(w http.ResponseWriter, r *http.Request) {
+func (bp *bpserver) handleGraphMeasurements(w http.ResponseWriter, r *http.Request) {
 
-	//TODO all customer errors should be converted to an image? unless there is a way for the client to detect there was an error e.g. http status code
 	user := bp.mustGetUser(w, r)
 	if user == nil {
 		return
@@ -175,13 +172,16 @@ func (bp *bpserver) handlePlotMeasurements(w http.ResponseWriter, r *http.Reques
 	sys := make(plotter.XYs, len(measurements))
 	dia := make(plotter.XYs, len(measurements))
 	pulse := make(plotter.XYs, len(measurements))
+	notes := make(plotter.XYs, len(measurements))
 
 	minX := float64(measurements[0].CreatedAt)
 	maxX := minX
-	minY := float64(measurements[0].Pulse) // pulse is arbitrary, but we must use an actual measurement
-	maxY := minY                           // we can't assume zero is the min or max
+	minY := float64(measurements[0].Pulse) // pulse is arbitrary, but we must use an actual measurement.
+	maxY := minY                           // We can't assume zero is the min or max
 
-	for _, m := range measurements {
+	// we get measurements in reverse order from the DB, so must we iterate over measurements in reverse
+	for i := range measurements {
+		m := measurements[len(measurements)-i-1]
 		x := float64(m.CreatedAt)
 		s, d, p := float64(m.Systolic), float64(m.Diastolic), float64(m.Pulse)
 
@@ -193,39 +193,79 @@ func (bp *bpserver) handlePlotMeasurements(w http.ResponseWriter, r *http.Reques
 		sys = append(sys, point{x, s})
 		dia = append(dia, point{x, d})
 		pulse = append(pulse, point{x, p})
+
+		if len(m.Notes) > 0 {
+			notes = append(notes, point{x, s})
+		}
+
 	}
+
+	// grid
+	g := plotter.NewGrid()
+
+	// systolic
+	sl, sp, _ := plotter.NewLinePoints(sys)
+	sl.Color = color.RGBA{0, 0, 165, 255}
+	sp.GlyphStyle.Radius *= 0.5
+
+	// notes
+	np, _ := plotter.NewScatter(notes)
+	np.GlyphStyle.Shape = draw.CircleGlyph{}
+	np.GlyphStyle.Radius *= 1.5
+	np.GlyphStyle.Color = color.RGBA{225, 225, 0, 0}
+
+	// diastolic
+	dl, dp, _ := plotter.NewLinePoints(dia)
+	dl.Color = color.RGBA{0, 165, 0, 255}
+	dp.GlyphStyle.Radius *= 0.5
+
+	// pulse
+	pl, pp, _ := plotter.NewLinePoints(pulse)
+	pl.Color = color.RGBA{165, 0, 0, 200}
+	pl.Width *= 0.75
+	pp.GlyphStyle.Radius *= 0.5
 
 	p, err := plot.New()
-
-	s, _ := plotter.NewLine(sys)
-	d, _ := plotter.NewLine(dia)
-	pz, _ := plotter.NewLine(pulse)
-	s.Color = color.RGBA{R: 255, B: 0, G: 0, A: 255}
-	d.Color = color.RGBA{R: 0, B: 255, G: 0, A: 255}
-	pz.Color = color.RGBA{R: 255, B: 255, G: 0, A: 255}
-
-	p.Add(s, d, pz)
-
 	if err != nil {
-		bp.handleInternalServerError(w, err, qm{"error": "not sure what happened"})
+		bp.handleInternalServerError(w, err, qm{"error": "internal error with gonum/plot"})
 		return
 	}
-	p.Title.Text = "My first Plotutil example"
-	p.X.Label.Text = fmt.Sprintf("%d", rand.Int())
-	p.Y.Label.Text = fmt.Sprintf("%d", rand.Int())
+	p.Add(g, dl, dp, pl, pp, sl, sp, np)
 
+	pl.Dashes = []vg.Length{vg.Points(5), vg.Points(5)}
+
+	if err != nil {
+		bp.handleInternalServerError(w, err, qm{"error": "internal error with gonum/plot"})
+		return
+	}
+	p.Title.Text = fmt.Sprintf("BPMonitor: %s", user.Username)
+	p.X.Tick.Marker = plot.TimeTicks{Format: "2006-01-02\n15:04"}
+	imgWidth := 12 * vg.Inch // 20
+	imgHeigth := 4 * vg.Inch // 6
+
+	// padding is weird
+	padX := (maxX - minX) / 10
+	maxX += padX
+	padY := (maxY - minY) / 20
+	maxY += padY
+	p.X.Padding = imgWidth / 20
+	p.Y.Padding = imgWidth / 20
 	p.Y.Min, p.Y.Max = minY, maxY
 	p.X.Min, p.X.Max = minX, maxX
+	p.Legend.Add("Systolic", sl)
+	p.Legend.Add("Diastolic", dl)
+	p.Legend.Add("Pulse", pl)
+	p.Legend.Add("Note", np)
 
-	wr, err := p.WriterTo(10*vg.Inch, 10*vg.Inch, "png")
+	wr, err := p.WriterTo(imgWidth, imgHeigth, "png")
 	if err != nil {
-		bp.handleInternalServerError(w, err, qm{"error": "AGAIN...not sure what happened"})
+		bp.handleInternalServerError(w, err, qm{"error": "internal error with gonum/plot"})
 		return
 	}
 
 	_, err = wr.WriteTo(w)
 	if err != nil {
-		bp.handleInternalServerError(w, err, qm{"error": "agAIN...not sure what happened"})
+		bp.handleInternalServerError(w, err, qm{"error": "internal error with gonum/plot"})
 		return
 	}
 
@@ -435,14 +475,12 @@ func (bp *bpserver) handleUserCreateSessionID(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	//todo detect if creds are invalid vs internal error and return http.StatusUnauthorized
 	sid, err := auth.CreateNewSessionID(bp.db, user)
 	if err != nil {
 		bp.handleInternalServerError(w, err, nil)
 		return
 	}
 
-	// TODO duplicate code? If you change e.g. session_id to sessionID then you have to update web/handler.go:submitLogin to know it is sessionID
 	io.WriteString(w, qm{"ok": true, "session_id": sid}.String())
 }
 
