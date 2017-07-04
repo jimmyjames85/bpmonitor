@@ -66,6 +66,7 @@ func (bp *bpserver) Serve() error {
 		"/measurements/get":      authenticatedHandlers.ThenFunc(bp.handleGetMeasurements),
 		"/measurements/remove":   authenticatedHandlers.ThenFunc(bp.handleRemoveMeasurements),
 		"/measurements/edit":     authenticatedHandlers.ThenFunc(bp.handleEditMeasurements),
+		"/plot":                  authenticatedHandlers.ThenFunc(bp.handlePlotMeasurements),
 		"/healthcheck":           commonHandlers.ThenFunc(bp.handleHealthcheck),
 	}
 

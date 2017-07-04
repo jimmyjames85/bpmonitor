@@ -13,6 +13,14 @@ import (
 
 	"time"
 
+	"math/rand"
+
+	"image/color"
+	"math"
+
+	"github.com/gonum/plot"
+	"github.com/gonum/plot/plotter"
+	"github.com/gonum/plot/vg"
 	"github.com/jimmyjames85/bpmonitor/backend"
 	"github.com/jimmyjames85/bpmonitor/backend/auth"
 	"github.com/pkg/errors"
@@ -127,6 +135,100 @@ func singleValue(values []string) (string, bool) {
 		return values[0], true
 	}
 	return "", false
+}
+
+func randomPoints(n int) plotter.XYs {
+	pts := make(plotter.XYs, n)
+	for i := range pts {
+		if i == 0 {
+			pts[i].X = rand.Float64()
+		} else {
+			pts[i].X = pts[i-1].X + rand.Float64()
+		}
+		pts[i].Y = pts[i].Y + 10*rand.Float64()
+	}
+	return pts
+}
+
+//TODO there has GOT to be an equivalent type in github.com/gonum/plot
+type point struct{ X, Y float64 }
+
+func (bp *bpserver) handlePlotMeasurements(w http.ResponseWriter, r *http.Request) {
+
+	//TODO all customer errors should be converted to an image? unless there is a way for the client to detect there was an error e.g. http status code
+	user := bp.mustGetUser(w, r)
+	if user == nil {
+		return
+	}
+
+	// TODO add date range
+	measurements, err := backend.GetMeasurements(bp.db, user.ID)
+	if err != nil {
+		bp.handleInternalServerError(w, err, qm{"error": "retrieving measurements"})
+		return
+	}
+
+	if len(measurements) == 0 {
+		bp.handleInternalServerError(w, errors.New("aint nothin to plot"), qm{"error": "there are no values to plot"})
+	}
+
+	sys := make(plotter.XYs, len(measurements))
+	dia := make(plotter.XYs, len(measurements))
+	pulse := make(plotter.XYs, len(measurements))
+
+	minX := float64(measurements[0].CreatedAt)
+	maxX := minX
+	minY := float64(measurements[0].Pulse) // pulse is arbitrary, but we must use an actual measurement
+	maxY := minY                           // we can't assume zero is the min or max
+
+	for _, m := range measurements {
+		x := float64(m.CreatedAt)
+		s, d, p := float64(m.Systolic), float64(m.Diastolic), float64(m.Pulse)
+
+		minX = math.Min(minX, x)
+		maxX = math.Max(maxX, x)
+		minY = math.Min(math.Min(math.Min(minY, s), d), p)
+		maxY = math.Max(math.Max(math.Max(maxY, s), d), p)
+
+		sys = append(sys, point{x, s})
+		dia = append(dia, point{x, d})
+		pulse = append(pulse, point{x, p})
+	}
+
+	p, err := plot.New()
+
+	s, _ := plotter.NewLine(sys)
+	d, _ := plotter.NewLine(dia)
+	pz, _ := plotter.NewLine(pulse)
+	s.Color = color.RGBA{R: 255, B: 0, G: 0, A: 255}
+	d.Color = color.RGBA{R: 0, B: 255, G: 0, A: 255}
+	pz.Color = color.RGBA{R: 255, B: 255, G: 0, A: 255}
+
+	p.Add(s, d, pz)
+
+	if err != nil {
+		bp.handleInternalServerError(w, err, qm{"error": "not sure what happened"})
+		return
+	}
+	p.Title.Text = "My first Plotutil example"
+	p.X.Label.Text = fmt.Sprintf("%d", rand.Int())
+	p.Y.Label.Text = fmt.Sprintf("%d", rand.Int())
+
+	p.Y.Min, p.Y.Max = minY, maxY
+	p.X.Min, p.X.Max = minX, maxX
+
+	wr, err := p.WriterTo(10*vg.Inch, 10*vg.Inch, "png")
+	if err != nil {
+		bp.handleInternalServerError(w, err, qm{"error": "AGAIN...not sure what happened"})
+		return
+	}
+
+	_, err = wr.WriteTo(w)
+	if err != nil {
+		bp.handleInternalServerError(w, err, qm{"error": "agAIN...not sure what happened"})
+		return
+	}
+
 }
 
 func (bp *bpserver) handleEditMeasurements(w http.ResponseWriter, r *http.Request) {
