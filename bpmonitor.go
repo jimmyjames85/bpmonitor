@@ -41,7 +41,7 @@ func NewServer(host string, port int, adminPass string, dsn mysql.Config, sslPem
 
 	dsn.ParseTime = true
 	scrubbedDSN := scrubDSN(dsn)
-	log.Println("DSN: %s\n", scrubbedDSN)
+	log.Printf("DSN: %s\n", scrubbedDSN)
 	db, err := sql.Open("mysql", dsn.FormatDSN())
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not open %s", scrubbedDSN)
@@ -66,6 +66,7 @@ func (bp *bpserver) Serve() error {
 		"/measurements/get":      authenticatedHandlers.ThenFunc(bp.handleGetMeasurements),
 		"/measurements/remove":   authenticatedHandlers.ThenFunc(bp.handleRemoveMeasurements),
 		"/measurements/edit":     authenticatedHandlers.ThenFunc(bp.handleEditMeasurements),
+		"/measurements/graph":    authenticatedHandlers.ThenFunc(bp.handleGraphMeasurements),
 		"/healthcheck":           commonHandlers.ThenFunc(bp.handleHealthcheck),
 	}
 
@@ -78,7 +79,8 @@ func (bp *bpserver) Serve() error {
 		log.Println("starting ssl")
 		go func() {
 			// shamefully ignoring error
-			//todo collect ssl error through a channel
+			// todo collect ssl error through a channel
+			// todo or attempt to listen and serve tls first and on failure serve an unsecure connection
 			err := http.ListenAndServeTLS(fmt.Sprintf(":%d", bp.port+1), bp.sslPemFileloc, bp.sslKeyFileloc, nil)
 			if err != nil {
 				log.Printf(`{"err_ssl": %q}`, err.Error())

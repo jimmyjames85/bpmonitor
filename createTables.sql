@@ -42,4 +42,12 @@ CREATE TABLE measurements (
   ENGINE = InnoDB
   DEFAULT CHARSET = utf8;
 
-INSERT INTO users (username, password) VALUES ('bp', 'bp');
+-- user=bp pass=monitor
+-- test data
+INSERT INTO users (username, password) VALUES ('bp', '$2a$10$OEYDcQEQqikOqaF0k5PLBu8gq0rJQ9RARxe8eLX1reyL15Qf4gaya');
+INSERT INTO measurements (user_id, systolic, diastolic, pulse, created_at)
+VALUES (1, 127, 79, 68, '2017-06-02 20:10:45'), (1, 125, 89, 86, '2017-06-02 22:40:30'),
+  (1, 123, 86, 75, '2017-06-03 00:51:12'), (1, 138, 96, 73, '2017-06-03 04:40:36'),
+  (1, 128, 88, 102, '2017-06-14 00:15:27'), (1, 125, 85, 74, '2017-06-20 01:36:27'),
+  (1, 119, 80, 81, '2017-06-22 07:57:26'), (1, 126, 86, 67, '2017-06-28 14:41:07'),
+  (1, 121, 83, 71, '2017-07-01 16:27:49'), (1, 131, 94, 73, '2017-07-04 19:49:07');

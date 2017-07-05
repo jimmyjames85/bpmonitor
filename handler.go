@@ -5,14 +5,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
+	"image/color"
 	"io"
 	"log"
+	"math"
+	"math/rand"
 	"net/http"
 	"runtime"
 	"strconv"
-
 	"time"
 
+	"github.com/gonum/plot"
+	"github.com/gonum/plot/plotter"
+	"github.com/gonum/plot/vg"
+	"github.com/gonum/plot/vg/draw"
 	"github.com/jimmyjames85/bpmonitor/backend"
 	"github.com/jimmyjames85/bpmonitor/backend/auth"
 	"github.com/pkg/errors"
@@ -127,6 +133,156 @@ func singleValue(values []string) (string, bool) {
 		return values[0], true
 	}
 	return "", false
+}
+
+func randomPoints(n int) plotter.XYs {
+	pts := make(plotter.XYs, n)
+	for i := range pts {
+		if i == 0 {
+			pts[i].X = rand.Float64()
+		} else {
+			pts[i].X = pts[i-1].X + rand.Float64()
+		}
+		pts[i].Y = pts[i].Y + 10*rand.Float64()
+	}
+	return pts
+}
+
+//TODO there has GOT to be an equivalent type in github.com/gonum/plot
+type point struct{ X, Y float64 }
+
+func (bp *bpserver) handleGraphMeasurements(w http.ResponseWriter, r *http.Request) {
+
+	user := bp.mustGetUser(w, r)
+	if user == nil {
+		return
+	}
+
+	// tz_offset should be in hours, and is a way to graph in different timezones
+	// this function graphs times in UTC by default
+	tzOffset := 0
+	if len(r.Form["tz_offset"])>0{
+		o, err := strconv.Atoi(r.Form["tz_offset"][0])
+		if err!=nil{
+			bp.handleCustomerError(w, http.StatusBadRequest, qm{"error":"unable to parse tz_offset"})
+			return
+		}
+		tzOffset = o
+	}
+
+	// TODO add date range
+	measurements, err := backend.GetMeasurements(bp.db, user.ID)
+	if err != nil {
+		bp.handleInternalServerError(w, err, qm{"error": "retrieving measurements"})
+		return
+	}
+
+	if len(measurements) == 0 {
+		bp.handleInternalServerError(w, errors.New("aint nothin to plot"), qm{"error": "there are no values to plot"})
+	}
+
+	sys := make(plotter.XYs, len(measurements))
+	dia := make(plotter.XYs, len(measurements))
+	pulse := make(plotter.XYs, len(measurements))
+	notes := make(plotter.XYs, len(measurements))
+
+	minX := float64(measurements[0].CreatedAt)
+	maxX := minX
+	minY := float64(measurements[0].Pulse) // pulse is arbitrary, but we must use an actual measurement.
+	maxY := minY                           // We can't assume zero is the min or max
+
+	for i := range measurements {
+		// we get measurements in reverse order from the DB,
+		// so must we iterate over measurements in reverse
+		m := measurements[len(measurements)-i-1]
+
+		x := float64(time.Unix(m.CreatedAt, 0).Add(time.Duration(tzOffset) * time.Hour).Unix())
+		s, d, p := float64(m.Systolic), float64(m.Diastolic), float64(m.Pulse)
+
+		minX = math.Min(minX, x)
+		maxX = math.Max(maxX, x)
+		minY = math.Min(math.Min(math.Min(minY, s), d), p)
+		maxY = math.Max(math.Max(math.Max(maxY, s), d), p)
+
+		sys = append(sys, point{x, s})
+		dia = append(dia, point{x, d})
+		pulse = append(pulse, point{x, p})
+
+		if len(m.Notes) > 0 {
+			notes = append(notes, point{x, s})
+		}
+
+	}
+
+	// grid
+	g := plotter.NewGrid()
+
+	// systolic
+	sl, sp, _ := plotter.NewLinePoints(sys)
+	sl.Color = color.RGBA{0, 0, 165, 255}
+	sp.GlyphStyle.Radius *= 0.5
+
+	// notes
+	np, _ := plotter.NewScatter(notes)
+	np.GlyphStyle.Shape = draw.CircleGlyph{}
+	np.GlyphStyle.Radius *= 1.5
+	np.GlyphStyle.Color = color.RGBA{225, 225, 0, 0}
+
+	// diastolic
+	dl, dp, _ := plotter.NewLinePoints(dia)
+	dl.Color = color.RGBA{0, 165, 0, 255}
+	dp.GlyphStyle.Radius *= 0.5
+
+	// pulse
+	pl, pp, _ := plotter.NewLinePoints(pulse)
+	pl.Color = color.RGBA{165, 0, 0, 200}
+	pl.Width *= 0.75
+	pp.GlyphStyle.Radius *= 0.5
+
+	p, err := plot.New()
+	if err != nil {
+		bp.handleInternalServerError(w, err, qm{"error": "internal error with gonum/plot"})
+		return
+	}
+	p.Add(g, dl, dp, pl, pp, sl, sp, np)
+
+	pl.Dashes = []vg.Length{vg.Points(5), vg.Points(5)}
+
+	if err != nil {
+		bp.handleInternalServerError(w, err, qm{"error": "internal error with gonum/plot"})
+		return
+	}
+	p.Title.Text = fmt.Sprintf("BPMonitor: %s", user.Username)
+	p.X.Tick.Marker = plot.TimeTicks{Format: "2006-01-02\n15:04"}
+	imgWidth := 12 * vg.Inch // 20
+	imgHeigth := 4 * vg.Inch // 6
+
+	// padding is weird
+	padX := (maxX - minX) / 10
+	maxX += padX
+	padY := (maxY - minY) / 20
+	maxY += padY
+	p.X.Padding = imgWidth / 20
+	p.Y.Padding = imgWidth / 20
+	p.Y.Min, p.Y.Max = minY, maxY
+	p.X.Min, p.X.Max = minX, maxX
+	p.Legend.Add("Systolic", sl)
+	p.Legend.Add("Diastolic", dl)
+	p.Legend.Add("Pulse", pl)
+	p.Legend.Add("Note", np)
+
+	wr, err := p.WriterTo(imgWidth, imgHeigth, "png")
+	if err != nil {
+		bp.handleInternalServerError(w, err, qm{"error": "internal error with gonum/plot"})
+		return
+	}
+
+	_, err = wr.WriteTo(w)
+	if err != nil {
+		bp.handleInternalServerError(w, err, qm{"error": "internal error with gonum/plot"})
+		return
+	}
+
 }
 
 func (bp *bpserver) handleEditMeasurements(w http.ResponseWriter, r *http.Request) {
@@ -333,14 +489,12 @@ func (bp *bpserver) handleUserCreateSessionID(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	//todo detect if creds are invalid vs internal error and return http.StatusUnauthorized
 	sid, err := auth.CreateNewSessionID(bp.db, user)
 	if err != nil {
 		bp.handleInternalServerError(w, err, nil)
 		return
 	}
 
-	// TODO duplicate code? If you change e.g. session_id to sessionID then you have to update web/handler.go:submitLogin to know it is sessionID
 	io.WriteString(w, qm{"ok": true, "session_id": sid}.String())
 }
 

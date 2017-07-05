@@ -3,12 +3,14 @@
 
 ## Developing
 
-	docker-compose up -d setup
-	source ./example.env
-	go run cmd/bpmonitor/main.go
+Setup:
 
-	# if you want to run a webserver hosting files in web/
-	docker-compose up -d webserver
+	docker-compose up -d setup, webserver
 
-	# run locally with
+Run locally with
+
 	source ./example.env && go run cmd/bpmonitor/main.go
+
+Web development via:
+
+	http://localhost:8080/

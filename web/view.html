@@ -15,7 +15,6 @@
     <div id="errorDiv"></div>
     <div id="controls"></div>
     <div id="message"></div>
-
     <script>
       loadPage();
 
@@ -39,6 +38,28 @@
 	  });
       };
 
+      function viewGraph(){
+	  sid = getCookie(SESSION_ID_COOKIE_KEY);
+
+	  var tz = new Date().getTimezoneOffset() / -60;
+
+	  imgsrc = getBaseURL() + ":50001/measurements/graph?";
+	  imgsrc += "d=" + new Date().getTime(); //adding timestamp so browser won't cache image
+	  imgsrc += "&tz_offset=" + tz;
+	  imgsrc += "&session_id=" + sid;
+
+
+	  graphDiv = getElement('graphDiv');
+	  graphButton = getElement('graphButton');
+	  if(graphDiv.innerHTML == ''){
+	      graphDiv.innerHTML = '<img  style="height: 100%; width: 100%; object-fit: contain" src="'+imgsrc+'" >';
+	      graphButton.value = 'Hide Graph';
+	  }
+	  else{
+	      graphDiv.innerHTML = '';
+	      graphButton.value = 'View Graph';
+	  }
+      }
 
       submittedEdits = {}
 
@@ -150,11 +171,12 @@
 		  html += '<table width="95%"><tr>';
 		  html += '<td width="10%"><input type="button" id="removeButton" value="Remove Checked" onclick="removeChecked()"></td>';
 		  html += '<td width="10%"><input type="button" id="submitButton" value="Save Edits" onclick="submitEdits()"></td>';
-		  html += '<td width="60%"></td>'
+		  html += '<td width="10%"><input type="button" id="graphButton" value="View Graph" onclick="viewGraph()"></td>';
+		  html += '<td width="50%"></td>'
 		  html += '<td width="10%"><input type="button" id="logoutButton" value="Logout" onclick="logout()"></td>';
 		  html += '</tr></table>';
 		  html += '</p>';
-
+		  html += '<div id="graphDiv"></div>'
 		  html += '<p>';
 		  html += '<br><table  class="bpmonitor">';
 		  html += "<tr><th></th><th>sys</th><th>dia</th><th>pulse</th><th>notes</th><th>Date</th></tr>";
@@ -179,7 +201,6 @@
 			  notes = result.measurements[i].notes
 			  html += '<td><textarea id="'+ notesID +'" class="measure" width="100%" onClick="editText(' + "'" + notesID + "'" + ')">'+notes+'</textarea></td>';
 
-
 			  dateID = "created_at_" + result.measurements[i].id;
 
 			  // javascript date is in ms
@@ -195,6 +216,10 @@
 
 		  getElement('submitButton').disabled = true;
 		  getElement('removeButton').disabled = true;
+
+		  if (result.measurements == null || result.measurements.length<=0)
+		      getElement('graphButton').disabled = true;
+
 		  getElement('systolic').focus();
 	      },
 
