@@ -3,10 +3,8 @@ package bpmonitor
 import (
 	"database/sql"
 	"fmt"
-
-	"net/http"
-
 	"log"
+	"net/http"
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/justinas/alice"
@@ -19,7 +17,6 @@ type Server interface {
 }
 
 type bpserver struct {
-	host          string
 	port          int
 	adminPass     string
 	mysqlCfg      mysql.Config
@@ -29,10 +26,9 @@ type bpserver struct {
 	sslKeyFileloc string
 }
 
-func NewServer(host string, port int, adminPass string, dsn mysql.Config, sslPemFileloc, sslKeyFileloc string) (Server, error) {
+func NewServer(port int, adminPass string, dsn mysql.Config, sslPemFileloc, sslKeyFileloc string) (Server, error) {
 
 	ret := &bpserver{
-		host:          host,
 		port:          port,
 		adminPass:     adminPass,
 		sslPemFileloc: sslPemFileloc,
@@ -77,15 +73,7 @@ func (bp *bpserver) Serve() error {
 
 	if len(bp.sslKeyFileloc) > 0 && len(bp.sslPemFileloc) > 0 {
 		log.Println("starting ssl")
-		go func() {
-			// shamefully ignoring error
-			// todo collect ssl error through a channel
-			// todo or attempt to listen and serve tls first and on failure serve an unsecure connection
-			err := http.ListenAndServeTLS(fmt.Sprintf(":%d", bp.port+1), bp.sslPemFileloc, bp.sslKeyFileloc, nil)
-			if err != nil {
-				log.Printf(`{"err_ssl": %q}`, err.Error())
-			}
-		}()
+		return http.ListenAndServeTLS(fmt.Sprintf(":%d", bp.port), bp.sslPemFileloc, bp.sslKeyFileloc, nil)
 	}
 	return http.ListenAndServe(fmt.Sprintf(":%d", bp.port), nil)
 }

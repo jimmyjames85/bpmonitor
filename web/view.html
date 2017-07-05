@@ -15,15 +15,18 @@
     <div id="errorDiv"></div>
     <div id="controls"></div>
     <div id="message"></div>
+
     <script>
+
       loadPage();
 
       function addNew(){
+	  submitEdits();
 	  sid = getCookie(SESSION_ID_COOKIE_KEY);
-	  systolic = getElement("systolic").value;
-	  diastolic = getElement("diastolic").value;
-	  pulse = getElement("pulse").value;
-	  notes = getElement("notes").value;
+	  systolic = getElement('systolic').value;
+	  diastolic = getElement('diastolic').value;
+	  pulse = getElement('pulse').value;
+	  notes = getElement('notes').value;
 	  addUrl = getBaseURL() + ":50001/measurements/add";
 
 	  $.ajax({
@@ -61,6 +64,23 @@
 	  }
       }
 
+      function editText(id){
+
+	  tb = getElement(id);
+	  if (tb != null)
+	  {
+	      tb.readOnly = false;
+	      tb.classList.add('edit');
+	      modifiedElements[id]=tb;
+	  }
+
+	  getElement('submitButton').disabled = false;
+      }
+
+      function finishEditText(id){
+	  // submitEdits()
+      }
+
       submittedEdits = {}
 
       function submitEdits(){
@@ -77,6 +97,8 @@
 
 	      var data = {session_id: sid,
 			  id: metricID};
+
+	      // the metricNames are the same as the arguments to the edit endpoint
 	      data[metricName] = metricValue;
 
 	      if (submittedEdits[metricID] == null)
@@ -186,39 +208,59 @@
 		      for(var i=0; i < result.measurements.length; i++){
 
 			  html += "<tr>";
-			  html += '<td width="5%"><input type="checkbox" name="cbItems" value="'+ result.measurements[i].id +'" onClick="enableRemoveButton()"></td>';
+			  html += '<td width="5%"><input type="checkbox" name="cbItems" value="' + result.measurements[i].id
+			      + '" onClick="enableRemoveButton()"></td>';
 
 			  sysID = "systolic_" + result.measurements[i].id;
-			  html += '<td width="10%" class="big"><input class="measure" id="'+ sysID +'" type="text" value="'+ result.measurements[i].systolic +'" onClick="editText('+ "'" + sysID + "'" + ')"></td>';
+			  html += '<td width="10%" class="big"><input class="measure" id="' + sysID + '"'
+			      + ' type="text" value="' + result.measurements[i].systolic + '"'
+			      + ' onClick="editText('+ "'" + sysID + "'" + ')"'
+			      + ' onFocusOut="finishEditText('+ "'" + sysID + "'" + ')">'
+			      + '</td>';
 
-			  diaID = "diastolic_" + result.measurements[i].id;
-			  html += '<td width="10%" class="big"><input class="measure" id="'+ diaID +'" type="text" value="'+ result.measurements[i].diastolic +'" onClick="editText('+ "'" + diaID + "'" + ')"></td>';
+			  diaID = 'diastolic_' + result.measurements[i].id;
+			  html += '<td width="10%" class="big"><input class="measure" id="' + diaID + '"'
+			      + ' type="text" value="' + result.measurements[i].diastolic + '"'
+			      + ' onClick="editText('+ "'" + diaID + "'" + ')"'
+			      + ' onFocusOut="finishEditText('+ "'" + diaID + "'" + ')">'
+			      + '</td>';
 
-			  pulID = "pulse_" + result.measurements[i].id;
-			  html += '<td width="10%" class="big"><input class="measure" id="'+ pulID +'" type="text" value="'+ result.measurements[i].pulse +'" onClick="editText('+ "'" + pulID + "'" + ')"></td>';
+			  pulID = 'pulse_' + result.measurements[i].id;
+			  html += '<td width="10%" class="big"><input class="measure" id="' + pulID + '"'
+			      + ' type="text" value="' + result.measurements[i].pulse + '"'
+			      + ' onClick="editText('+ "'" + pulID + "'" + ')"'
+			      + ' onFocusOut="finishEditText('+ "'" + pulID + "'" + ')">'
+			      + '</td>';
 
-			  notesID = "notes_" + result.measurements[i].id;
+			  notesID = 'notes_' + result.measurements[i].id;
 			  notes = result.measurements[i].notes
-			  html += '<td><textarea id="'+ notesID +'" class="measure" width="100%" onClick="editText(' + "'" + notesID + "'" + ')">'+notes+'</textarea></td>';
+			  html += '<td><textarea width="100%" class="measure" id="' + notesID + '"'
+			      + ' onClick="editText(' + "'" +  notesID + "'" + ')"'
+			      + ' onFocusOut="finshEditText(' + "'" +  notesID + "'" + ')">' + notes + '</textarea>'
+			      + '</td>';
 
-			  dateID = "created_at_" + result.measurements[i].id;
-
+			  dateID = 'created_at_' + result.measurements[i].id;
 			  // javascript date is in ms
 			  var d = new Date(result.measurements[i].created_at * 1000);
 			  dateStr = d.toLocaleDateString() + " " + d.toLocaleTimeString();
-			  html += '<td width="15%" class="small"><input class="date" id="'+ dateID +'" type="text" value="'+ dateStr +'" onClick="editText('+ "'" + dateID + "'" + ')"></td>';
+			  html += '<td width="15%" class="small"><input class="date" id="' + dateID +'"'
+			      + ' type="text" value="' + dateStr +'"'
+			      + ' onClick="editText(' + "'" + dateID + "'" + ')"'
+			      + ' onFocusOut="finishEditText(' + "'" + dateID + "'" + ')">'
+			      + '</td>';
 			  html += "</tr>\n";
 		      }
 		  }
 
 		  html += '</table></p>'
 		  getElement('controls').innerHTML = html;
-
 		  getElement('submitButton').disabled = true;
 		  getElement('removeButton').disabled = true;
 
 		  if (result.measurements == null || result.measurements.length<=0)
 		      getElement('graphButton').disabled = true;
+		  else
+		      viewGraph();
 
 		  getElement('systolic').focus();
 	      },
@@ -239,18 +281,6 @@
 
       modifiedElements = {}
 
-      function editText(id){
-
-	  tb = getElement(id);
-	  if (tb != null)
-	  {
-	      tb.readOnly = false;
-	      tb.classList.add('edit');
-	      modifiedElements[id]=tb;
-	  }
-
-	  getElement('submitButton').disabled = false;
-      }
 
       function enableRemoveButton(){
 	  getElement('removeButton').disabled = false;

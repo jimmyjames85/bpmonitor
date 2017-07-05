@@ -5,7 +5,7 @@
 
 Setup:
 
-	docker-compose up -d setup, webserver
+	docker-compose up -d setup webserver
 
 Run locally with
 

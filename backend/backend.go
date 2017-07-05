@@ -98,11 +98,15 @@ func RemoveMeasurements(db *sql.DB, userid int, ids []int) error {
 	return err
 
 }
-func GetMeasurements(db *sql.DB, userid int) ([]Measurement, error) {
+
+func GetMeasurements(db *sql.DB, userid int, from, to time.Time) ([]Measurement, error) {
 
 	var ret []Measurement
 
-	rows, err := db.Query("SELECT id, user_id, systolic, diastolic, pulse, notes, created_at FROM measurements WHERE user_id=? ORDER BY created_at DESC", userid)
+	rows, err := db.Query(
+		`SELECT id, user_id, systolic, diastolic, pulse, notes, created_at FROM
+		 measurements WHERE user_id=? AND created_at>=? AND created_at<=? ORDER BY created_at DESC`,
+		userid, from, to)
 	if err != nil {
 		return ret, err
 	}

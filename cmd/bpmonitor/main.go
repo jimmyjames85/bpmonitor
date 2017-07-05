@@ -2,16 +2,15 @@ package main
 
 import (
 	"fmt"
+	"github.com/go-sql-driver/mysql"
 	"github.com/jimmyjames85/bpmonitor"
 	"github.com/kelseyhightower/envconfig"
-	"github.com/go-sql-driver/mysql"
 	"log"
 )
 
 type config struct {
 	AdminPass     string `envconfig:"ADMIN_PASS" required:"true"`                // is used to add new users
-	Port          int `envconfig:"PORT" required:"false" default:"1234"`         // port to run on
-	Host          string `envconfig:"HOST" required:"false" default:"localhost"` // for the web form data to know which host to hit
+	Port          int    `envconfig:"PORT" required:"false" default:"1234"`      // port to run on
 	DBuser        string `envconfig:"DB_USER" required "true"`
 	DBPswd        string `envconfig:"DB_PASS" required "true"`
 	DBHost        string `envconfig:"DB_HOST" required "true"`
@@ -32,7 +31,7 @@ func main() {
 	dsn.DBName = c.DBName
 	dsn.Net = "tcp"
 
-	bp, err := bpmonitor.NewServer(c.Host, c.Port, c.AdminPass, dsn, c.SSLPemFileloc, c.SSLKeyFileloc)
+	bp, err := bpmonitor.NewServer(c.Port, c.AdminPass, dsn, c.SSLPemFileloc, c.SSLKeyFileloc)
 	if err != nil {
 		log.Fatalf("unable to start server: %v\n", err)
 	}
