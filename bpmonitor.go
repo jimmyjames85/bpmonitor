@@ -41,7 +41,7 @@ func NewServer(host string, port int, adminPass string, dsn mysql.Config, sslPem
 
 	dsn.ParseTime = true
 	scrubbedDSN := scrubDSN(dsn)
-	log.Println("DSN: %s\n", scrubbedDSN)
+	log.Printf("DSN: %s\n", scrubbedDSN)
 	db, err := sql.Open("mysql", dsn.FormatDSN())
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not open %s", scrubbedDSN)

@@ -39,8 +39,15 @@
       };
 
       function viewGraph(){
+	  sid = getCookie(SESSION_ID_COOKIE_KEY);
 
-	  imgsrc = getBaseURL() + ":50001/measurements/graph?" + new Date().getTime(); //adding timestamp so browser won't cache image
+	  var tz = new Date().getTimezoneOffset() / -60;
+
+	  imgsrc = getBaseURL() + ":50001/measurements/graph?";
+	  imgsrc += "d=" + new Date().getTime(); //adding timestamp so browser won't cache image
+	  imgsrc += "&tz_offset=" + tz;
+	  imgsrc += "&session_id=" + sid;
+
 
 	  graphDiv = getElement('graphDiv');
 	  graphButton = getElement('graphButton');

@@ -158,6 +158,18 @@ func (bp *bpserver) handleGraphMeasurements(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// tz_offset should be in hours, and is a way to graph in different timezones
+	// this function graphs times in UTC by default
+	tzOffset := 0
+	if len(r.Form["tz_offset"])>0{
+		o, err := strconv.Atoi(r.Form["tz_offset"][0])
+		if err!=nil{
+			bp.handleCustomerError(w, http.StatusBadRequest, qm{"error":"unable to parse tz_offset"})
+			return
+		}
+		tzOffset = o
+	}
+
 	// TODO add date range
 	measurements, err := backend.GetMeasurements(bp.db, user.ID)
 	if err != nil {
@@ -179,10 +191,12 @@ func (bp *bpserver) handleGraphMeasurements(w http.ResponseWriter, r *http.Reque
 	minY := float64(measurements[0].Pulse) // pulse is arbitrary, but we must use an actual measurement.
 	maxY := minY                           // We can't assume zero is the min or max
 
-	// we get measurements in reverse order from the DB, so must we iterate over measurements in reverse
 	for i := range measurements {
+		// we get measurements in reverse order from the DB,
+		// so must we iterate over measurements in reverse
 		m := measurements[len(measurements)-i-1]
-		x := float64(m.CreatedAt)
+
+		x := float64(time.Unix(m.CreatedAt, 0).Add(time.Duration(tzOffset) * time.Hour).Unix())
 		s, d, p := float64(m.Systolic), float64(m.Diastolic), float64(m.Pulse)
 
 		minX = math.Min(minX, x)
